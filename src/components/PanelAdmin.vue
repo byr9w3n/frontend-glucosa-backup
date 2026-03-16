@@ -307,22 +307,25 @@ const datosGrafico = computed(() => {
       <div v-else-if="tabActiva === 'medicamentos'">
         <div class="med-form-card">
           <h3 style="margin-top: 0; color: #1f2937;">{{ modoEdicion ? 'Editar Medicamento' : 'Añadir Nuevo Medicamento' }}</h3>
-          <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-            <div style="flex: 1;">
+          
+          <div class="form-row">
+            <div class="form-col">
               <label class="form-label">Nombre</label>
               <input type="text" v-model="formMed.nombre" class="form-input" placeholder="">
             </div>
-            <div style="flex: 1;">
+            <div class="form-col">
               <label class="form-label">Dosis</label>
               <input type="text" v-model="formMed.dosis" class="form-input" placeholder="">
             </div>
           </div>
+          
           <div style="margin-bottom: 15px;">
             <label class="form-label">Instrucciones (Horario)</label>
             <input type="text" v-model="formMed.instrucciones" class="form-input" placeholder="">
           </div>
-          <div style="display: flex; gap: 10px;">
-            <button @click="guardarMedicamento" class="btn-primary" style="padding: 12px; font-size: 1rem;">
+          
+          <div class="action-row">
+            <button @click="guardarMedicamento" class="btn-primary" style="padding: 12px; font-size: 1rem; width: 100%;">
               {{ modoEdicion ? 'Actualizar' : 'Guardar' }}
             </button>
             <button v-if="modoEdicion" @click="cancelarEdicion" class="btn-outline" style="width: 100%;">Cancelar</button>
@@ -405,4 +408,57 @@ const datosGrafico = computed(() => {
 .btn-page:hover:not(:disabled) { background: #f3f4f6; }
 .btn-page:disabled { opacity: 0.5; cursor: not-allowed; }
 .page-info { font-size: 0.95rem; font-weight: 500; color: #6b7280; }
+
+/* NUEVAS CLASES PARA EL FORMULARIO */
+.form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+.form-col { flex: 1; }
+.action-row { display: flex; gap: 10px; }
+
+/* =========================================
+   MEDIA QUERIES PARA DISPOSITIVOS MÓVILES 
+   ========================================= */
+@media (max-width: 768px) {
+  /* Panel y Login */
+  .card-wide { padding: 15px; }
+  .input-pin { font-size: 2rem; letter-spacing: 10px; max-width: 100%; }
+
+  /* Filtros: Se apilan verticalmente */
+  .filters-container { 
+    flex-direction: column; 
+    gap: 10px; 
+  }
+  .custom-select { 
+    width: 100%; 
+  }
+
+  /* KPIs: El promedio ocupa toda la fila superior, Max y Min se dividen abajo */
+  .kpi-grid { 
+    grid-template-columns: 1fr 1fr; 
+  }
+  .kpi-card:first-child { 
+    grid-column: span 2; 
+  }
+
+  /* Formulario de Medicamentos: Se apilan los inputs */
+  .form-row, .action-row { 
+    flex-direction: column; 
+    gap: 10px;
+  }
+
+  /* Tabla: Permite scroll horizontal para no romper la pantalla */
+  .modern-table-container { 
+    overflow-x: auto; 
+    -webkit-overflow-scrolling: touch; 
+  }
+  .modern-table { 
+    min-width: 500px; /* Asegura que la tabla no se comprima demasiado */
+  }
+
+  /* Pestañas: Ajuste de tamaño de texto */
+  .tab-btn { 
+    font-size: 0.95rem; 
+    padding: 10px 5px; 
+  }
+}
+
 </style>
