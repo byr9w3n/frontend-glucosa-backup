@@ -47,10 +47,7 @@ const guardarRegistro = async () => {
       <label>Momento del día</label>
       <select v-model="etiqueta" class="input-select">
         <option>Ayunas</option>
-        <option>Post-Desayuno</option>
-        <option>Post-Almuerzo</option>
-        <option>Post-Cena</option>
-        <option>Antes de dormir</option>
+        <option>Pre-Merienda</option>
       </select>
     </div>
 
