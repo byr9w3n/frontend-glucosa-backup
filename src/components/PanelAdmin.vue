@@ -9,6 +9,17 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const pin = ref('')
 const autenticado = ref(false)
 
+// <-- NUEVO: Estado para el modal de la foto ampliada -->
+const fotoSeleccionada = ref(null)
+
+const abrirFoto = (url) => {
+  fotoSeleccionada.value = url
+}
+
+const cerrarFoto = () => {
+  fotoSeleccionada.value = null
+}
+
 // Pestañas
 const tabActiva = ref('glucosa') 
 
@@ -27,7 +38,8 @@ const elementosPorPagina = 10
 
 // Estado del formulario de medicamentos
 const modoEdicion = ref(false)
-const formMed = ref({ id: null, nombre: '', dosis: '', instrucciones: '' })
+const subiendoFoto = ref(false) // <-- NUEVO: Estado de carga de la foto
+const formMed = ref({ id: null, nombre: '', dosis: '', instrucciones: '', foto_url: '' }) // <-- NUEVO: foto_url
 
 // --- AUTENTICACIÓN Y CARGA ---
 const verificarPin = async () => {
@@ -45,7 +57,6 @@ const cargarEstadisticas = async () => {
   cargando.value = true
   try {
     const respuesta = await axios.get('https://api-glucosa.onrender.com/estadisticas')
-    // CAMBIO 1: Ordenamos los datos desde el principio para que el MÁS RECIENTE sea el primero.
     registros.value = respuesta.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
   } catch (error) { console.error(error) } 
   finally { cargando.value = false }
@@ -58,7 +69,7 @@ const cargarMedicamentos = async () => {
   } catch (error) { console.error(error) }
 }
 
-// --- LÓGICA DE MEDICAMENTOS (CRUD) ---
+// --- LÓGICA DE MEDICAMENTOS (CRUD Y FOTOS) ---
 const guardarMedicamento = async () => {
   if (!formMed.value.nombre || !formMed.value.dosis) return alert("Nombre y Dosis son obligatorios");
   try {
@@ -84,17 +95,34 @@ const eliminarMedicamento = async (id) => {
 
 const cancelarEdicion = () => {
   modoEdicion.value = false
-  formMed.value = { id: null, nombre: '', dosis: '', instrucciones: '' }
+  formMed.value = { id: null, nombre: '', dosis: '', instrucciones: '', foto_url: '' } // <-- NUEVO: Limpiar foto_url
+}
+
+// <-- NUEVO: Función para subir la foto al servidor -->
+const manejarSubidaFoto = async (event) => {
+  const archivo = event.target.files[0];
+  if (!archivo) return;
+
+  subiendoFoto.value = true;
+  const formData = new FormData();
+  formData.append("file", archivo);
+
+  try {
+    const respuesta = await axios.post('https://api-glucosa.onrender.com/upload-foto', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    formMed.value.foto_url = respuesta.data.url; // Guardamos la URL pública
+  } catch (error) {
+    console.error("Error al subir foto", error);
+    alert("No se pudo subir la imagen.");
+  } finally {
+    subiendoFoto.value = false;
+  }
 }
 
 // --- LÓGICA MÉDICA, FILTROS Y PAGINACIÓN ---
+watch([mesSeleccionado, momentoSeleccionado], () => { paginaActual.value = 1; });
 
-// Resetea la página a 1 cuando cambian los filtros
-watch([mesSeleccionado, momentoSeleccionado], () => {
-  paginaActual.value = 1;
-});
-
-// Extrae los meses únicos donde hay datos
 const mesesConDatos = computed(() => {
   const map = new Map();
   registros.value.forEach(r => {
@@ -106,13 +134,11 @@ const mesesConDatos = computed(() => {
   return Array.from(map.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([key, label]) => ({ key, label }));
 })
 
-// Extrae las etiquetas (momentos) únicas
 const etiquetasUnicas = computed(() => {
   const etiquetas = new Set(registros.value.map(r => r.etiqueta).filter(e => e));
   return Array.from(etiquetas).sort();
 })
 
-// Aplica el filtro de mes y momento simultáneamente
 const registrosFiltrados = computed(() => {
   return registros.value.filter(r => {
     const date = new Date(r.created_at);
@@ -123,18 +149,14 @@ const registrosFiltrados = computed(() => {
   });
 })
 
-// Variables para la paginación
 const totalPaginas = computed(() => Math.ceil(registrosFiltrados.value.length / elementosPorPagina))
 
 const registrosPaginados = computed(() => {
-  // CAMBIO 2: Como "registrosFiltrados" ya está del más reciente al más antiguo,
-  // simplemente extraemos la página actual (ya no hacemos .reverse() aquí)
   const inicio = (paginaActual.value - 1) * elementosPorPagina;
   const fin = inicio + elementosPorPagina;
   return registrosFiltrados.value.slice(inicio, fin);
 })
 
-// Estadísticas basadas en datos filtrados
 const statsApp = computed(() => {
   if (registrosFiltrados.value.length === 0) return { promedio: 0, max: 0, min: 0 };
   const valores = registrosFiltrados.value.map(r => r.valor);
@@ -142,15 +164,12 @@ const statsApp = computed(() => {
   return { promedio: Math.round(suma / valores.length), max: Math.max(...valores), min: Math.min(...valores) }
 })
 
-// Lógica de Tendencia vs Mes Anterior
 const tendenciaPromedio = computed(() => {
   if (mesSeleccionado.value === 'todos' || registrosFiltrados.value.length === 0) return null;
-
   const indexActual = mesesConDatos.value.findIndex(m => m.key === mesSeleccionado.value);
-  if (indexActual === -1 || indexActual >= mesesConDatos.value.length - 1) return null; // No hay mes anterior
+  if (indexActual === -1 || indexActual >= mesesConDatos.value.length - 1) return null; 
 
   const mesAnteriorKey = mesesConDatos.value[indexActual + 1].key;
-  
   const regAnteriores = registros.value.filter(r => {
     const date = new Date(r.created_at);
     const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -182,13 +201,9 @@ const obtenerEstado = (valor) => {
   return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' };
 }
 
-// Gráfico basado en los registros filtrados
 const datosGrafico = computed(() => {
-  // CAMBIO 3: Para la gráfica, invertimos el orden para que vaya de izquierda a derecha 
-  // (del más antiguo al más reciente cronológicamente)
   const datosCronologicos = [...registrosFiltrados.value].reverse();
   const coloresPuntos = datosCronologicos.map(r => obtenerEstado(r.valor).color);
-  
   return {
     labels: datosCronologicos.map(r => {
       const fecha = new Date(r.created_at);
@@ -219,7 +234,6 @@ const datosGrafico = computed(() => {
     </div>
 
     <div v-else>
-      
       <div class="tabs-container">
         <button @click="tabActiva = 'glucosa'" :class="['tab-btn', tabActiva === 'glucosa' ? 'tab-active' : '']">📊 Glucosa</button>
         <button @click="tabActiva = 'medicamentos'" :class="['tab-btn', tabActiva === 'medicamentos' ? 'tab-active' : '']">💊 Medicamentos</button>
@@ -323,9 +337,25 @@ const datosGrafico = computed(() => {
             <label class="form-label">Instrucciones (Horario)</label>
             <input type="text" v-model="formMed.instrucciones" class="form-input" placeholder="">
           </div>
+
+          <div style="margin-bottom: 20px; padding-top: 5px;">
+            <label class="form-label">Foto del medicamento (Opcional)</label>
+            <input type="file" accept="image/*" @change="manejarSubidaFoto" class="form-input" style="padding: 8px;">
+            
+            <div v-if="subiendoFoto" style="color: #10b981; font-size: 0.9rem; margin-top: 8px; font-weight: bold;">
+              ⏳ Subiendo imagen al servidor...
+            </div>
+            
+            <div v-if="formMed.foto_url" style="margin-top: 15px; display: flex; align-items: flex-end; gap: 10px;">
+              <img :src="formMed.foto_url" style="max-height: 100px; border-radius: 8px; border: 2px solid #e5e7eb; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+              <button @click="formMed.foto_url = ''" class="btn-outline" style="color: #ef4444; border-color: #ef4444; padding: 6px 12px; font-size: 0.9rem;">
+                Quitar Foto
+              </button>
+            </div>
+          </div>
           
           <div class="action-row">
-            <button @click="guardarMedicamento" class="btn-primary" style="padding: 12px; font-size: 1rem; width: 100%;">
+            <button @click="guardarMedicamento" :disabled="subiendoFoto" class="btn-primary" style="padding: 12px; font-size: 1rem; width: 100%;">
               {{ modoEdicion ? 'Actualizar' : 'Guardar' }}
             </button>
             <button v-if="modoEdicion" @click="cancelarEdicion" class="btn-outline" style="width: 100%;">Cancelar</button>
@@ -336,15 +366,21 @@ const datosGrafico = computed(() => {
         <div class="modern-table-container">
           <table class="modern-table">
             <thead>
-              <tr><th>Medicamento</th><th>Dosis</th><th>Instrucciones</th><th>Acciones</th></tr>
+              <tr><th>Foto</th><th>Medicamento</th><th>Dosis</th><th>Instrucciones</th><th style="text-align: right;">Acciones</th></tr>
             </thead>
             <tbody>
-              <tr v-if="medicamentos.length === 0"><td colspan="4" style="text-align: center; color: #6b7280;">No hay medicamentos registrados.</td></tr>
+              <tr v-if="medicamentos.length === 0"><td colspan="5" style="text-align: center; color: #6b7280; padding: 20px;">No hay medicamentos registrados.</td></tr>
               <tr v-for="med in medicamentos" :key="med.id">
+                
+                <td style="width: 60px; text-align: center; vertical-align: middle;">
+  <img v-if="med.foto_url" :src="med.foto_url" @click="abrirFoto(med.foto_url)" class="img-thumbnail" style="width: 45px; height: 45px; object-fit: cover; border-radius: 8px; border: 1px solid #e5e7eb; display: block; cursor: pointer;">
+  <span v-else style="font-size: 1.8rem; display: block;">💊</span>
+</td>
+                
                 <td style="font-weight: 600; color: #111827;">{{ med.nombre }}</td>
                 <td style="color: #4b5563;">{{ med.dosis }}</td>
                 <td style="color: #6b7280; font-size: 0.9rem;">{{ med.instrucciones }}</td>
-                <td>
+                <td style="text-align: right;">
                   <button @click="editarMedicamento(med)" class="action-btn edit-btn">✏️</button>
                   <button @click="eliminarMedicamento(med.id)" class="action-btn delete-btn">❌</button>
                 </td>
@@ -356,6 +392,12 @@ const datosGrafico = computed(() => {
 
     </div>
   </div>
+  <div v-if="fotoSeleccionada" class="modal-overlay" @click="cerrarFoto">
+      <div class="modal-content" @click.stop>
+        <button class="close-modal-btn" @click="cerrarFoto">❌</button>
+        <img :src="fotoSeleccionada" class="img-ampliada" alt="Medicamento ampliado">
+      </div>
+    </div>
 </template>
 
 <style scoped>
@@ -409,56 +451,88 @@ const datosGrafico = computed(() => {
 .btn-page:disabled { opacity: 0.5; cursor: not-allowed; }
 .page-info { font-size: 0.95rem; font-weight: 500; color: #6b7280; }
 
-/* NUEVAS CLASES PARA EL FORMULARIO */
+/* CLASES PARA EL FORMULARIO */
 .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
 .form-col { flex: 1; }
 .action-row { display: flex; gap: 10px; }
 
-/* =========================================
-   MEDIA QUERIES PARA DISPOSITIVOS MÓVILES 
-   ========================================= */
 @media (max-width: 768px) {
-  /* Panel y Login */
   .card-wide { padding: 15px; }
   .input-pin { font-size: 2rem; letter-spacing: 10px; max-width: 100%; }
+  .filters-container { flex-direction: column; gap: 10px; }
+  .custom-select { width: 100%; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-card:first-child { grid-column: span 2; }
+  .form-row, .action-row { flex-direction: column; gap: 10px; }
+  .modern-table-container { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .modern-table { min-width: 500px; }
+  .tab-btn { font-size: 0.95rem; padding: 10px 5px; }
+}
 
-  /* Filtros: Se apilan verticalmente */
-  .filters-container { 
-    flex-direction: column; 
-    gap: 10px; 
-  }
-  .custom-select { 
-    width: 100%; 
-  }
+/* --- NUEVO: MODAL DE IMAGEN --- */
+.img-thumbnail {
+  transition: transform 0.2s ease-in-out;
+}
 
-  /* KPIs: El promedio ocupa toda la fila superior, Max y Min se dividen abajo */
-  .kpi-grid { 
-    grid-template-columns: 1fr 1fr; 
-  }
-  .kpi-card:first-child { 
-    grid-column: span 2; 
-  }
+.img-thumbnail:hover {
+  transform: scale(1.15); /* Efecto de zoom al pasar el mouse */
+}
 
-  /* Formulario de Medicamentos: Se apilan los inputs */
-  .form-row, .action-row { 
-    flex-direction: column; 
-    gap: 10px;
-  }
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999; /* Asegura que esté por encima de todo */
+  backdrop-filter: blur(3px); /* Difumina un poco el fondo */
+}
 
-  /* Tabla: Permite scroll horizontal para no romper la pantalla */
-  .modern-table-container { 
-    overflow-x: auto; 
-    -webkit-overflow-scrolling: touch; 
-  }
-  .modern-table { 
-    min-width: 500px; /* Asegura que la tabla no se comprima demasiado */
-  }
+.modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 
-  /* Pestañas: Ajuste de tamaño de texto */
-  .tab-btn { 
-    font-size: 0.95rem; 
-    padding: 10px 5px; 
-  }
+.img-ampliada {
+  max-width: 100%;
+  max-height: calc(90vh - 20px);
+  border-radius: 8px;
+  display: block;
+  object-fit: contain;
+}
+
+.close-modal-btn {
+  position: absolute;
+  top: -15px;
+  right: -15px;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 50%;
+  width: 35px;
+  height: 35px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.close-modal-btn:hover {
+  transform: scale(1.1);
 }
 
 </style>
