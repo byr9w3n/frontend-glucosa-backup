@@ -195,15 +195,31 @@ const formatearFechaHora = (isoString) => {
   return fecha.toLocaleDateString('es-EC', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-const obtenerEstado = (valor) => {
-  if (valor < 70) return { texto: 'Bajo', color: '#3b82f6', bg: '#dbeafe' };
-  if (valor > 140) return { texto: 'Alto', color: '#ef4444', bg: '#fee2e2' };
-  return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' };
+const obtenerEstado = (valor, etiqueta = '') => {
+  // Pasamos la etiqueta a minúsculas para evaluarla más fácilmente
+  const momento = etiqueta ? etiqueta.toLowerCase() : '';
+  const esAyunas = momento.includes('ayuna') || momento.includes('despertar');
+
+  // 1. ROJO: Demasiado bajo (Menor a 70 siempre es alerta por hipoglucemia)
+  if (valor < 70) return { texto: 'Bajo', color: '#ef4444', bg: '#fee2e2' }; 
+
+  // 2. Lógica para "En Ayunas" (Normal hasta 100)
+  if (esAyunas) {
+    if (valor <= 100) return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' }; // Verde
+    if (valor <= 125) return { texto: 'Alerta', color: '#f59e0b', bg: '#fef3c7' }; // Amarillo
+    return { texto: 'Alto', color: '#ef4444', bg: '#fee2e2' }; // Rojo
+  } 
+  // 3. Lógica para "Después de comidas" u otras horas (Normal hasta 140)
+  else {
+    if (valor <= 140) return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' }; // Verde
+    if (valor <= 180) return { texto: 'Alerta', color: '#f59e0b', bg: '#fef3c7' }; // Amarillo
+    return { texto: 'Alto', color: '#ef4444', bg: '#fee2e2' }; // Rojo
+  }
 }
 
 const datosGrafico = computed(() => {
   const datosCronologicos = [...registrosFiltrados.value].reverse();
-  const coloresPuntos = datosCronologicos.map(r => obtenerEstado(r.valor).color);
+  const coloresPuntos = datosCronologicos.map(r => obtenerEstado(r.valor, r.etiqueta).color);
   return {
     labels: datosCronologicos.map(r => {
       const fecha = new Date(r.created_at);
@@ -298,8 +314,8 @@ const datosGrafico = computed(() => {
                 <td colspan="5" style="text-align: center; color: #6b7280; padding: 20px;">No hay registros para los filtros seleccionados.</td>
               </tr>
               <tr v-for="reg in registrosPaginados" :key="reg.id">
-                <td><div class="status-indicator" :style="{ backgroundColor: obtenerEstado(reg.valor).color }"></div></td>
-                <td><span class="badge" :style="{ backgroundColor: obtenerEstado(reg.valor).bg, color: obtenerEstado(reg.valor).color }">{{ reg.valor }} mg/dL</span></td>
+                <td><div class="status-indicator" :style="{ backgroundColor: obtenerEstado(reg.valor, reg.etiqueta).color }"></div></td>
+<td><span class="badge" :style="{ backgroundColor: obtenerEstado(reg.valor, reg.etiqueta).bg, color: obtenerEstado(reg.valor, reg.etiqueta).color }">{{ reg.valor }} mg/dL</span></td>
                 <td style="color: #4b5563; font-weight: 500;">{{ reg.etiqueta }}</td>
                 <td style="color: #6b7280; font-size: 0.9rem; max-width: 200px; word-wrap: break-word;">
                   {{ reg.notas && reg.notas !== 'EMPTY' ? reg.notas : '-' }}
