@@ -196,20 +196,21 @@ const formatearFechaHora = (isoString) => {
 }
 
 const obtenerEstado = (valor, etiqueta = '') => {
-  // Pasamos la etiqueta a minúsculas para evaluarla más fácilmente
   const momento = etiqueta ? etiqueta.toLowerCase() : '';
-  const esAyunas = momento.includes('ayuna') || momento.includes('despertar');
+  
+  // NUEVO: Agregamos 'pre' y 'antes' para incluir Pre-Merienda, Pre-Almuerzo, etc.
+  const esAntesDeComer = momento.includes('ayuna') || momento.includes('despertar') || momento.includes('pre') || momento.includes('antes');
 
   // 1. ROJO: Demasiado bajo (Menor a 70 siempre es alerta por hipoglucemia)
   if (valor < 70) return { texto: 'Bajo', color: '#ef4444', bg: '#fee2e2' }; 
 
-  // 2. Lógica para "En Ayunas" (Normal hasta 100)
-  if (esAyunas) {
+  // 2. Lógica para "Antes de comer" (Ayunas, Pre-Merienda, etc. - Normal hasta 100)
+  if (esAntesDeComer) {
     if (valor <= 100) return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' }; // Verde
     if (valor <= 125) return { texto: 'Alerta', color: '#f59e0b', bg: '#fef3c7' }; // Amarillo
     return { texto: 'Alto', color: '#ef4444', bg: '#fee2e2' }; // Rojo
   } 
-  // 3. Lógica para "Después de comidas" u otras horas (Normal hasta 140)
+  // 3. Lógica para "Después de comidas" (Post-comidas - Normal hasta 140)
   else {
     if (valor <= 140) return { texto: 'Normal', color: '#10b981', bg: '#d1fae5' }; // Verde
     if (valor <= 180) return { texto: 'Alerta', color: '#f59e0b', bg: '#fef3c7' }; // Amarillo
