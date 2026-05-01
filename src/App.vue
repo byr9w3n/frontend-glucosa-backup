@@ -3,7 +3,9 @@
 import { ref } from 'vue'
 import './main.css' // Importamos los estilos globales
 import FormularioMama from './components/Formulario.vue'
-import PanelAdmin from './components/PanelAdmin.vue'
+
+// ⚠️ CORRECCIÓN AQUÍ: Actualizamos la ruta para incluir la carpeta 'Admin'
+import PanelAdmin from './components/Admin/PanelAdmin.vue'
 
 // Lógica de enrutamiento simple
 const rutaActual = ref(window.location.hash)

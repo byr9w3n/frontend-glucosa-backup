@@ -16,9 +16,9 @@ const guardarRegistro = async () => {
     await axios.post('https://api-glucosa.onrender.com/registro', {
       valor: valor.value,
       etiqueta: etiqueta.value,
-      notas: notas.value // Ahora enviamos el comentario
+      notas: notas.value
     })
-    mensaje.value = '¡Ya lo guardé Mamá :)!'
+    mensaje.value = 'Se guardaron los datos correctamente!'
     valor.value = '' 
     notas.value = ''
     mostrarNotas.value = false
@@ -66,6 +66,11 @@ const guardarRegistro = async () => {
     </button>
 
     <p v-if="mensaje" class="success-msg">{{ mensaje }}</p>
+
+    <!-- NUEVO: Enlace sutil para ir al panel de administración -->
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="#admin" class="link-admin">⚙️ Panel de usuario</a>
+    </div>
   </div>
 </template>
 
@@ -83,21 +88,37 @@ const guardarRegistro = async () => {
   width: 100%; padding: 16px; font-size: 1.2rem; background-color: #f9fafb;
   border: 2px solid #e5e7eb; border-radius: 16px; box-sizing: border-box;
 }
-/* Estilos para las notas */
+
 .btn-text {
   background: none; border: none; color: #6b7280; font-weight: 600; font-size: 1rem; 
   cursor: pointer; text-decoration: underline; padding: 10px; transition: color 0.2s;
 }
 .btn-text:hover { color: #10b981; }
+
 .input-textarea {
   width: 100%; padding: 12px; font-size: 1rem; background-color: #f9fafb;
   border: 2px solid #e5e7eb; border-radius: 12px; box-sizing: border-box; 
   resize: vertical; min-height: 80px; font-family: inherit;
 }
+
 .input-huge:focus, .input-select:focus, .input-textarea:focus {
   outline: none; border-color: #10b981; background-color: #ffffff;
 }
+
 .success-msg {
   text-align: center; color: #059669; font-weight: bold; font-size: 1.2rem; margin-top: 20px;
+}
+
+/* NUEVO: Estilos para el enlace de administración */
+.link-admin {
+  color: #9ca3af;
+  font-size: 0.95rem;
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.link-admin:hover {
+  color: #4b5563;
 }
 </style>
