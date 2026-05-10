@@ -1,11 +1,10 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import axios from 'axios'
+import api from '../../api' // <-- Usamos la instancia local con Token
 
 const medicamentos = ref([])
 const cargando = ref(false)
 
-// Estados para Modal e Imágenes[cite: 2]
 const fotoSeleccionada = ref(null)
 const subiendoFoto = ref(false)
 
@@ -22,10 +21,13 @@ const cerrarFoto = () => { fotoSeleccionada.value = null }
 const cargarMedicamentos = async () => {
   cargando.value = true
   try {
-    const respuesta = await axios.get('https://api-glucosa.onrender.com/medicamentos')
+    const respuesta = await api.get('/medicamentos') // <-- API Local
     medicamentos.value = respuesta.data
-  } catch (error) { console.error(error) }
-  finally { cargando.value = false }
+  } catch (error) { 
+    console.error(error) 
+  } finally { 
+    cargando.value = false 
+  }
 }
 
 const manejarSubidaFoto = async (event) => {
@@ -37,7 +39,7 @@ const manejarSubidaFoto = async (event) => {
   formData.append("file", archivo);
 
   try {
-    const respuesta = await axios.post('https://api-glucosa.onrender.com/upload-foto', formData, {
+    const respuesta = await api.post('/upload-foto', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     formMed.value.foto_url = respuesta.data.url;
@@ -52,11 +54,16 @@ const manejarSubidaFoto = async (event) => {
 const guardarMedicamento = async () => {
   if (!formMed.value.nombre || !formMed.value.dosis) return alert("Nombre y Dosis son obligatorios");
   try {
-    if (modoEdicion.value) await axios.put(`https://api-glucosa.onrender.com/medicamentos/${formMed.value.id}`, formMed.value)
-    else await axios.post('https://api-glucosa.onrender.com/medicamentos', formMed.value)
+    if (modoEdicion.value) {
+      await api.put(`/medicamentos/${formMed.value.id}`, formMed.value)
+    } else {
+      await api.post('/medicamentos', formMed.value)
+    }
     await cargarMedicamentos()
     cancelarEdicion()
-  } catch (error) { console.error("Error al guardar medicamento", error) }
+  } catch (error) { 
+    console.error("Error al guardar medicamento", error) 
+  }
 }
 
 const editarMedicamento = (med) => {
@@ -67,9 +74,11 @@ const editarMedicamento = (med) => {
 const eliminarMedicamento = async (id) => {
   if (!confirm("¿Seguro que deseas eliminar este medicamento?")) return;
   try {
-    await axios.delete(`https://api-glucosa.onrender.com/medicamentos/${id}`)
+    await api.delete(`/medicamentos/${id}`)
     await cargarMedicamentos()
-  } catch (error) { console.error("Error al eliminar", error) }
+  } catch (error) { 
+    console.error("Error al eliminar", error) 
+  }
 }
 
 const cancelarEdicion = () => {
@@ -79,7 +88,7 @@ const cancelarEdicion = () => {
 </script>
 
 <template>
-  <div>
+  <div class="tab-medicamentos-wrapper">
     <div class="med-form-card">
       <h3 style="margin-top: 0; color: #1f2937;">{{ modoEdicion ? 'Editar Medicamento' : 'Añadir Nuevo Medicamento' }}</h3>
       
@@ -124,7 +133,7 @@ const cancelarEdicion = () => {
     </div>
 
     <h3 style="color: #1f2937; margin-top: 30px;">Receta Actual</h3>
-    <div v-if="cargando" style="color: #6b7280; padding: 20px;">Cargando medicamentos...</div>
+    <div v-if="cargando" style="color: #6b7280; padding: 20px; text-align: center;">Cargando medicamentos...</div>
     <div v-else class="modern-table-container">
       <table class="modern-table">
         <thead>
@@ -149,7 +158,6 @@ const cancelarEdicion = () => {
       </table>
     </div>
 
-    <!-- Modal de Imagen Ampliada[cite: 2] -->
     <div v-if="fotoSeleccionada" class="modal-overlay" @click="cerrarFoto">
       <div class="modal-content" @click.stop>
         <button class="close-modal-btn" @click="cerrarFoto">❌</button>
@@ -160,28 +168,31 @@ const cancelarEdicion = () => {
 </template>
 
 <style scoped>
-/* Estilos extraídos específicamente para los Formularios y el Modal[cite: 2] */
-.med-form-card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 20px; border-radius: 16px; margin-bottom: 20px; }
+.tab-medicamentos-wrapper { width: 100%; display: block; }
+
+.med-form-card { background: #f9fafb; border: 1px solid #e5e7eb; padding: 20px; border-radius: 16px; margin-bottom: 20px; width: 100%; box-sizing: border-box; }
 .form-label { display: block; font-size: 0.9rem; font-weight: 600; color: #4b5563; margin-bottom: 5px; }
-.form-input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; }
+.form-input { width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; box-sizing: border-box; background-color: white; }
 .form-input:focus { outline: none; border-color: #10b981; }
+
 .btn-outline { background: white; border: 2px solid #e5e7eb; padding: 10px 20px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
 .btn-primary { background: #10b981; color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+
 .action-btn { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; padding: 5px; margin: 0 5px; transition: transform 0.2s; }
 .action-btn:hover { transform: scale(1.2); }
-.form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+
+.form-row { display: flex; gap: 15px; margin-bottom: 15px; width: 100%; }
 .form-col { flex: 1; }
 .action-row { display: flex; gap: 10px; }
 
-/* Tabla básica */
-.modern-table-container { border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
-.modern-table { width: 100%; border-collapse: collapse; text-align: left; }
+.modern-table-container { border-radius: 12px; border: 1px solid #e5e7eb; overflow-x: auto; width: 100%; }
+.modern-table { width: 100%; border-collapse: collapse; text-align: left; min-width: 600px; }
 .modern-table th { background: #f9fafb; padding: 14px 16px; font-weight: 600; color: #374151; font-size: 0.95rem; border-bottom: 2px solid #e5e7eb; }
 .modern-table td { padding: 14px 16px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
 
-/* Modal y Miniaturas[cite: 2] */
 .img-thumbnail { transition: transform 0.2s ease-in-out; }
 .img-thumbnail:hover { transform: scale(1.15); }
+
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.75); display: flex; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(3px); }
 .modal-content { position: relative; max-width: 90vw; max-height: 90vh; background: white; padding: 10px; border-radius: 12px; display: flex; justify-content: center; align-items: center; }
 .img-ampliada { max-width: 100%; max-height: calc(90vh - 20px); border-radius: 8px; object-fit: contain; }
@@ -190,6 +201,5 @@ const cancelarEdicion = () => {
 
 @media (max-width: 768px) {
   .form-row, .action-row { flex-direction: column; gap: 10px; }
-  .modern-table-container { overflow-x: auto; }
 }
 </style>
